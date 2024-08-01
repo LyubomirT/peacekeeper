@@ -43,6 +43,32 @@ def setup_moderation(bot):
         embed.set_thumbnail(url="attachment://PeaceKeeper.png")
         embed.add_field(name="Reason", value=reason)
         await ctx.respond(embed=embed, file=file)
+    
+    @bot.slash_command(name="unban", description="Unban a user from the server")
+    @commands.has_permissions(ban_members=True)
+    async def unban(ctx, member: Option(discord.User, "The user to unban"), reason: Option(str, "Reason for the unban", required=False)):
+        if reason is None:
+            reason = "No reason provided"
+        
+        await ctx.guild.unban(member, reason=reason)
+        embed = discord.Embed(title="User Unbanned", description=f"{member.mention} has been unbanned from the server.", color=discord.Color.green())
+        file = discord.File("PeaceKeeper.png", filename="PeaceKeeper.png")
+        embed.set_thumbnail(url="attachment://PeaceKeeper.png")
+        embed.add_field(name="Reason", value=reason)
+        await ctx.respond(embed=embed, file=file)
+
+    @bot.slash_command(name="untimeout", description="Remove a timeout from a user")
+    @commands.has_permissions(moderate_members=True)
+    async def untimeout(ctx, member: Option(discord.Member, "The member to untimeout"), reason: Option(str, "Reason for the untimeout", required=False)):
+        if reason is None:
+            reason = "No reason provided"
+        
+        await member.remove_timeout(reason=reason)
+        embed = discord.Embed(title="User Untimed Out", description=f"{member.mention} has been untimed out.", color=discord.Color.green())
+        file = discord.File("PeaceKeeper.png", filename="PeaceKeeper.png")
+        embed.set_thumbnail(url="attachment://PeaceKeeper.png")
+        embed.add_field(name="Reason", value=reason)
+        await ctx.respond(embed=embed, file=file)
 
     @bot.slash_command(name="clear", description="Clear a specified number of messages")
     @commands.has_permissions(manage_messages=True)

@@ -172,10 +172,14 @@ def setup_logs(bot):
             embed.add_field(name="After", value=after.nick if after.nick else "No nickname", inline=False)
             await log_event(after.guild, "nickname_change", embed)
 
-        if before.communication_disabled_until != after.communication_disabled_until:
+        if before.communication_disabled_until == None and after.communication_disabled_until != None:
             embed = discord.Embed(title="Member Timeout", description=f"{before.mention} was timed out.", color=discord.Color.red())
             embed.add_field(name="Timeout Until", value=after.communication_disabled_until.strftime("%Y-%m-%d %H:%M:%S") if after.communication_disabled_until else "No timeout")
             await log_event(after.guild, "member_timeout", embed)
+        
+        if before.communication_disabled_until != None and after.communication_disabled_until == None:
+            embed = discord.Embed(title="Member Untimeout", description=f"{before.mention} was untimed out.", color=discord.Color.green())
+            await log_event(after.guild, "member_untimeout", embed)
 
     @bot.event
     async def on_user_update(before, after):
