@@ -13,8 +13,10 @@ def setup_moderation(bot):
         
         await member.ban(reason=reason)
         embed = discord.Embed(title="User Banned", description=f"{member.mention} has been banned from the server.", color=discord.Color.red())
+        file = discord.File("PeaceKeeper.png", filename="PeaceKeeper.png")
+        embed.set_thumbnail(url="attachment://PeaceKeeper.png")
         embed.add_field(name="Reason", value=reason)
-        await ctx.respond(embed=embed)
+        await ctx.respond(embed=embed, file=file)
 
     @bot.slash_command(name="kick", description="Kick a user from the server")
     @commands.has_permissions(kick_members=True)
@@ -24,8 +26,10 @@ def setup_moderation(bot):
         
         await member.kick(reason=reason)
         embed = discord.Embed(title="User Kicked", description=f"{member.mention} has been kicked from the server.", color=discord.Color.orange())
+        file = discord.File("PeaceKeeper.png", filename="PeaceKeeper.png")
+        embed.set_thumbnail(url="attachment://PeaceKeeper.png")
         embed.add_field(name="Reason", value=reason)
-        await ctx.respond(embed=embed)
+        await ctx.respond(embed=embed, file=file)
 
     @bot.slash_command(name="timeout", description="Timeout a user")
     @commands.has_permissions(moderate_members=True)
@@ -35,12 +39,16 @@ def setup_moderation(bot):
         
         await member.timeout_for(duration=datetime.timedelta(minutes=duration), reason=reason)
         embed = discord.Embed(title="User Timed Out", description=f"{member.mention} has been timed out for {duration} minutes.", color=discord.Color.orange())
+        file = discord.File("PeaceKeeper.png", filename="PeaceKeeper.png")
+        embed.set_thumbnail(url="attachment://PeaceKeeper.png")
         embed.add_field(name="Reason", value=reason)
-        await ctx.respond(embed=embed)
+        await ctx.respond(embed=embed, file=file)
 
     @bot.slash_command(name="clear", description="Clear a specified number of messages")
     @commands.has_permissions(manage_messages=True)
     async def clear(ctx, amount: Option(int, "Number of messages to clear")):
         await ctx.channel.purge(limit=amount + 1)  # +1 to include the command message
         embed = discord.Embed(title="Chat Cleared", description=f"{amount} messages have been cleared.", color=discord.Color.blue())
-        await ctx.respond(embed=embed, delete_after=5)
+        file = discord.File("PeaceKeeper.png", filename="PeaceKeeper.png")
+        embed.set_thumbnail(url="attachment://PeaceKeeper.png")
+        await ctx.respond(embed=embed, delete_after=5, file=file)

@@ -2,6 +2,7 @@ import discord
 from discord.commands import Option
 from discord.ext import commands
 import sqlite3
+from datetime import datetime
 
 def setup_logs(bot):
     conn = sqlite3.connect('peacekeeper.db')
@@ -16,7 +17,7 @@ def setup_logs(bot):
         "kick", "ban", "unban", "join", "leave", "message_delete", "message_edit",
         "channel_create", "channel_delete", "channel_update", "role_create",
         "role_delete", "role_update", "nickname_change", "user_update",
-        "voice_state_update", "invite_create", "invite_delete", "member_timeout"
+        "voice_state_update", "invite_create", "invite_delete", "member_timeout", "all"
     ]
 
     @bot.slash_command(name="set_log_channel", description="Set the log channel for the server")
@@ -34,6 +35,14 @@ def setup_logs(bot):
             embed = discord.Embed(title="Invalid Aspect", description="Please choose a valid log aspect.", color=discord.Color.red())
             await ctx.respond(embed=embed)
             return
+        
+        if aspect == "all":
+            for aspect in log_aspects[:-1]:
+                c.execute("INSERT OR REPLACE INTO log_settings VALUES (?, ?, ?)", (ctx.guild.id, aspect, 1))
+            conn.commit()
+            embed = discord.Embed(title="Log Aspect Enabled", description="All log aspects have been enabled.", color=discord.Color.green())
+            await ctx.respond(embed=embed)
+            return
 
         c.execute("INSERT OR REPLACE INTO log_settings VALUES (?, ?, ?)", (ctx.guild.id, aspect, 1))
         conn.commit()
@@ -45,6 +54,14 @@ def setup_logs(bot):
     async def disable_log(ctx, aspect: Option(str, "The log aspect to disable", autocomplete=discord.utils.basic_autocomplete(log_aspects))):
         if aspect not in log_aspects:
             embed = discord.Embed(title="Invalid Aspect", description="Please choose a valid log aspect.", color=discord.Color.red())
+            await ctx.respond(embed=embed)
+            return
+        
+        if aspect == "all":
+            for aspect in log_aspects[:-1]:
+                c.execute("INSERT OR REPLACE INTO log_settings VALUES (?, ?, ?)", (ctx.guild.id, aspect, 0))
+            conn.commit()
+            embed = discord.Embed(title="Log Aspect Disabled", description="All log aspects have been disabled.", color=discord.Color.green())
             await ctx.respond(embed=embed)
             return
 
@@ -155,6 +172,11 @@ def setup_logs(bot):
             embed.add_field(name="After", value=after.nick if after.nick else "No nickname", inline=False)
             await log_event(after.guild, "nickname_change", embed)
 
+        if before.communication_disabled_until != after.communication_disabled_until:
+            embed = discord.Embed(title="Member Timeout", description=f"{before.mention} was timed out.", color=discord.Color.red())
+            embed.add_field(name="Timeout Until", value=after.communication_disabled_until.strftime("%Y-%m-%d %H:%M:%S") if after.communication_disabled_until else "No timeout")
+            await log_event(after.guild, "member_timeout", embed)
+
     @bot.event
     async def on_user_update(before, after):
         if before.name != after.name or before.discriminator != after.discriminator:
@@ -164,14 +186,6 @@ def setup_logs(bot):
             for guild in bot.guilds:
                 if guild.get_member(after.id):
                     await log_event(guild, "user_update", embed)
-
-        if before.is_timed_out() != after.is_timed_out():
-            if after.is_timed_out():
-                embed = discord.Embed(title="Member Timed Out", description=f"{after.mention} was timed out", color=discord.Color.orange())
-                embed.add_field(name="Until", value=after.timed_out_until.strftime("%Y-%m-%d %H:%M:%S"))
-            else:
-                embed = discord.Embed(title="Member Timeout Removed", description=f"{after.mention}'s timeout was removed", color=discord.Color.green())
-            await log_event(after.guild, "member_timeout", embed)
 
     @bot.event
     async def on_voice_state_update(member, before, after):
