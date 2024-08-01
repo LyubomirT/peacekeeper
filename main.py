@@ -7,6 +7,7 @@ from moderation import setup_moderation
 from filter import setup_filter
 from logs import setup_logs
 from error_handlers import setup_error_handlers
+from warnings_ import setup_warnings
 
 load_dotenv()
 
@@ -32,6 +33,7 @@ def setup(bot):
     setup_filter(bot)
     setup_logs(bot)
     setup_error_handlers(bot)
+    setup_warnings(bot)
 
 setup(bot)
 
