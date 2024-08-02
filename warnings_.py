@@ -14,22 +14,42 @@ def setup_warnings(bot):
             self.warnings = warnings
             self.user = user
             self.page = 0
+            self.add_item(self.previous_button())
+            self.create_next_button()
 
-        @discord.ui.button(label="Previous", style=discord.ButtonStyle.gray, disabled=True)
-        async def previous_button(self, button: discord.ui.Button, interaction: discord.Interaction):
-            self.page -= 1
-            await self.update_message(interaction)
+        def previous_button(self):
+            return discord.ui.Button(style=discord.ButtonStyle.gray, label="◀", custom_id="previous", disabled=True)
 
-        @discord.ui.button(label="Next", style=discord.ButtonStyle.gray)
-        async def next_button(self, button: discord.ui.Button, interaction: discord.Interaction):
-            self.page += 1
-            await self.update_message(interaction)
+        def create_next_button(self):
+            if len(self.warnings) > 3:
+                next_button = discord.ui.Button(style=discord.ButtonStyle.gray, label="▶", custom_id="next")
+                self.add_item(next_button)
+            else:
+                next_button = discord.ui.Button(style=discord.ButtonStyle.gray, label="▶", custom_id="next", disabled=True)
+                self.add_item(next_button)
+
+        async def interaction_check(self, interaction: discord.Interaction) -> bool:
+            if interaction.data["custom_id"] == "previous":
+                if self.page > 0:
+                    self.page -= 1
+                    await self.update_message(interaction)
+                return True
+            elif interaction.data["custom_id"] == "next":
+                if self.page < (len(self.warnings) - 1) // 3:
+                    self.page += 1
+                    await self.update_message(interaction)
+                return True
+            return False
 
         async def update_message(self, interaction: discord.Interaction):
             embed = create_warnings_embed(self.warnings, self.user, self.page)
-            self.previous_button.disabled = (self.page == 0)
-            self.next_button.disabled = (self.page >= (len(self.warnings) - 1) // 3)
-            await interaction.response.edit_message(embed=embed, view=self)
+            self.children[0].disabled = (self.page == 0)  # Previous button
+            self.children[1].disabled = (self.page >= (len(self.warnings) - 1) // 3)  # Next button
+            
+            try:
+                await interaction.response.edit_message(embed=embed, view=self)
+            except discord.errors.InteractionResponded:
+                await interaction.message.edit(embed=embed, view=self)
 
     def create_warnings_embed(warnings, user, page):
         start = page * 3
