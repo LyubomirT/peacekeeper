@@ -4,11 +4,6 @@ import sqlite3
 import datetime
 
 def setup_utilities(bot):
-    conn = sqlite3.connect('utilities.db')
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS temporary_roles
-                 (guild_id INTEGER, user_id INTEGER, role_id INTEGER, expiry_time TEXT)''')
-    conn.commit()
 
     @bot.slash_command(name="server_info", description="Get information about the server")
     async def server_info(ctx):
