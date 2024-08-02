@@ -67,3 +67,5 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 ---
 
 Made with ❤️ by LyubomirT | [GitHub](https://github.com/LyubomirT) | [Discord](https://discord.gg/the-orange-squad)
+
+[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/lyubomirt)
