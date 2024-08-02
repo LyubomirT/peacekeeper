@@ -2,6 +2,10 @@ import discord
 from discord.ext import commands
 import sqlite3
 import datetime
+import PIL.Image
+import PIL.ImageDraw
+import PIL.ImageFont
+import os
 
 def setup_utilities(bot):
 
@@ -9,19 +13,45 @@ def setup_utilities(bot):
     async def server_info(ctx):
         guild = ctx.guild
         embed = discord.Embed(title=guild.name, description=f"ID: {guild.id}", color=discord.Color.blurple())
-        embed.set_thumbnail(url=guild.icon_url)
+        
+        if guild.icon is None:
+            image = PIL.Image.new("RGB", (400, 400), color="black")
+            draw = PIL.ImageDraw.Draw(image)
+            font_size = 200
+            font = PIL.ImageFont.truetype("arial.ttf", font_size)
+            text = guild.name[0].upper()
+            bbox = draw.textbbox((0, 0), text, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            text_position = ((400 - text_width) // 2, (400 - text_height) // 2)
+            draw.text(text_position, text, fill="white", font=font)
+            image.save("thumbnail.png")
+            file = discord.File("thumbnail.png", filename="thumbnail.png")
+            embed.set_thumbnail(url="attachment://thumbnail.png")
+        else:
+            embed.set_thumbnail(url=guild.icon.url)
+        
         embed.add_field(name="Owner", value=guild.owner.mention)
         embed.add_field(name="Members", value=guild.member_count)
         embed.add_field(name="Roles", value=len(guild.roles))
         embed.add_field(name="Channels", value=len(guild.channels))
         embed.add_field(name="Created At", value=guild.created_at.strftime("%B %d, %Y"))
-        await ctx.respond(embed=embed)
+        
+        if guild.banner:
+            embed.set_image(url=guild.banner.url)
+        
+        if guild.icon:
+            await ctx.respond(embed=embed)
+        else:
+            await ctx.respond(embed=embed, file=file)
+            os.remove("thumbnail.png")
+        
     
     @bot.slash_command(name="user_info", description="Get information about a user")
     @commands.has_permissions(kick_members=True)
     async def user_info(ctx, user: discord.User):
         embed = discord.Embed(title=user.name, description=f"ID: {user.id}", color=discord.Color.blurple())
-        embed.set_thumbnail(url=user.avatar_url)
+        embed.set_thumbnail(url=user.avatar)
         embed.add_field(name="Bot", value=user.bot)
         embed.add_field(name="Created At", value=user.created_at.strftime("%B %d, %Y"))
         embed.add_field(name="Joined At", value=user.joined_at.strftime("%B %d, %Y"))
@@ -68,7 +98,12 @@ def setup_utilities(bot):
         
     @bot.slash_command(name="create_embed", description="Create a custom embed")
     @commands.has_permissions(manage_messages=True)
-    async def create_embed(ctx, title: str, description: str, color: discord.Color, thumbnail: str = None, image: str = None, footer: str = None, footer_icon: str = None, timestamp: bool = False, author: bool = True):
+    async def create_embed(ctx, title: str, description: str, color: str, thumbnail: str = None, image: str = None, footer: str = None, footer_icon: str = None, timestamp: bool = False, author: bool = True):
+        # convert the color to a discord.Color object from a hex string
+        if not color.startswith("#") or len(color) != 7:
+            await ctx.respond("Invalid color. Please provide a valid hex color code.")
+            return
+        color = discord.Color(int(color[1:], 16))
         embed = discord.Embed(title=title, description=description, color=color)
         if thumbnail:
             try:
