@@ -118,8 +118,10 @@ def setup_moderation(bot):
         embed.add_field(name="Duration", value=f"{duration} minutes", inline=False)
         embed.add_field(name="Expiry Time", value=expiry_time.strftime("%Y-%m-%d %H:%M:%S"), inline=False)
         embed.add_field(name="Reason", value=reason, inline=False)
+        file = discord.File("PeaceKeeper.png", filename="PeaceKeeper.png")
+        embed.set_thumbnail(url="attachment://PeaceKeeper.png")
 
-        await ctx.respond(embed=embed)
+        await ctx.respond(embed=embed, file=file)
 
     @tasks.loop(minutes=1)
     async def check_expired_roles():
@@ -158,5 +160,23 @@ def setup_moderation(bot):
     @check_expired_roles.before_loop
     async def before_check_expired_roles():
         await bot.wait_until_ready()
+    
+    @bot.slash_command(name="add_role", description="Add a role to a user")
+    @commands.has_permissions(manage_roles=True)
+    async def add_role(ctx, member: Option(discord.Member, "The member to add the role to"), role: Option(discord.Role, "The role to add")):
+        await member.add_roles(role)
+        embed = discord.Embed(title="Role Added", description=f"{role.mention} has been added to {member.mention}.", color=discord.Color.green())
+        file = discord.File("PeaceKeeper.png", filename="PeaceKeeper.png")
+        embed.set_thumbnail(url="attachment://PeaceKeeper.png")
+        await ctx.respond(embed=embed, file=file)
+    
+    @bot.slash_command(name="remove_role", description="Remove a role from a user")
+    @commands.has_permissions(manage_roles=True)
+    async def remove_role(ctx, member: Option(discord.Member, "The member to remove the role from"), role: Option(discord.Role, "The role to remove")):
+        await member.remove_roles(role)
+        embed = discord.Embed(title="Role Removed", description=f"{role.mention} has been removed from {member.mention}.", color=discord.Color.red())
+        file = discord.File("PeaceKeeper.png", filename="PeaceKeeper.png")
+        embed.set_thumbnail(url="attachment://PeaceKeeper.png")
+        await ctx.respond(embed=embed, file=file)
 
     check_expired_roles.start()
