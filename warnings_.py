@@ -1,17 +1,12 @@
 import discord
 from discord.commands import Option
 from discord.ext import commands
-import sqlite3
 from datetime import datetime
+from db_utils import execute_db_query
 
 def setup_warnings(bot):
-    conn = sqlite3.connect('peacekeeper.db')
-    c = conn.cursor()
-    
-    # Modify the table to include message_id
-    c.execute('''CREATE TABLE IF NOT EXISTS warnings
+    execute_db_query('''CREATE TABLE IF NOT EXISTS warnings
                  (guild_id INTEGER, user_id INTEGER, moderator_id INTEGER, reason TEXT, timestamp TEXT, message_id INTEGER)''')
-    conn.commit()
 
     class WarningPaginator(discord.ui.View):
         def __init__(self, warnings, user):
@@ -55,16 +50,13 @@ def setup_warnings(bot):
     async def warn(ctx, member: Option(discord.Member, "The member to warn"), reason: Option(str, "Reason for the warning")):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
-        # Send the warning message to the user
         try:
             warn_msg = await member.send(f"You have been warned in {ctx.guild.name} for the following reason:\n{reason}")
             message_id = warn_msg.id
         except discord.Forbidden:
             message_id = None
         
-        # Insert the warning into the database, including the message_id
-        c.execute("INSERT INTO warnings VALUES (?, ?, ?, ?, ?, ?)", (ctx.guild.id, member.id, ctx.author.id, reason, timestamp, message_id))
-        conn.commit()
+        execute_db_query("INSERT INTO warnings VALUES (?, ?, ?, ?, ?, ?)", (ctx.guild.id, member.id, ctx.author.id, reason, timestamp, message_id))
 
         embed = discord.Embed(title="User Warned", description=f"{member.mention} has been warned.", color=discord.Color.orange())
         embed.add_field(name="Reason", value=reason)
@@ -73,8 +65,7 @@ def setup_warnings(bot):
     @bot.slash_command(name="warnings", description="View warnings for a user")
     @commands.has_permissions(kick_members=True)
     async def warnings(ctx, member: Option(discord.Member, "The member to check warnings for")):
-        c.execute("SELECT * FROM warnings WHERE guild_id = ? AND user_id = ?", (ctx.guild.id, member.id))
-        warnings = c.fetchall()
+        warnings = execute_db_query("SELECT * FROM warnings WHERE guild_id = ? AND user_id = ?", (ctx.guild.id, member.id))
 
         if not warnings:
             await ctx.respond(f"{member.mention} has no warnings.")
@@ -87,8 +78,7 @@ def setup_warnings(bot):
     @bot.slash_command(name="remove_warning", description="Remove a specific warning from a user")
     @commands.has_permissions(kick_members=True)
     async def remove_warning(ctx, member: Option(discord.Member, "The member to remove a warning from"), warning_index: Option(int, "The index of the warning to remove")):
-        c.execute("SELECT * FROM warnings WHERE guild_id = ? AND user_id = ?", (ctx.guild.id, member.id))
-        warnings = c.fetchall()
+        warnings = execute_db_query("SELECT * FROM warnings WHERE guild_id = ? AND user_id = ?", (ctx.guild.id, member.id))
 
         if not warnings:
             await ctx.respond(f"{member.mention} has no warnings.")
@@ -99,15 +89,10 @@ def setup_warnings(bot):
             return
 
         warning = warnings[warning_index - 1]
-        if not warning:
-            await ctx.respond("Warning not found.")
-            return
-        c.execute("DELETE FROM warnings WHERE guild_id = ? AND user_id = ? AND moderator_id = ? AND reason = ? AND timestamp = ? AND message_id = ?", warning)
-        conn.commit()
+        execute_db_query("DELETE FROM warnings WHERE guild_id = ? AND user_id = ? AND moderator_id = ? AND reason = ? AND timestamp = ? AND message_id = ?", warning)
 
         embed = discord.Embed(title="Warning Removed", description=f"Warning {warning_index} has been removed from {member.mention}.", color=discord.Color.green())
         
-        # Try to delete the warning message using the stored message_id
         if warning[5]:  # Check if message_id is not None
             try:
                 warning_message = await member.fetch_message(warning[5])
@@ -124,15 +109,13 @@ def setup_warnings(bot):
     @bot.slash_command(name="clear_warnings", description="Clear all warnings for a user")
     @commands.has_permissions(administrator=True)
     async def clear_warnings(ctx, member: Option(discord.Member, "The member to clear warnings for")):
-        c.execute("SELECT message_id FROM warnings WHERE guild_id = ? AND user_id = ?", (ctx.guild.id, member.id))
-        message_ids = [row[0] for row in c.fetchall() if row[0] is not None]
+        warnings = execute_db_query("SELECT message_id FROM warnings WHERE guild_id = ? AND user_id = ?", (ctx.guild.id, member.id))
+        message_ids = [row[0] for row in warnings if row[0] is not None]
 
-        c.execute("DELETE FROM warnings WHERE guild_id = ? AND user_id = ?", (ctx.guild.id, member.id))
-        conn.commit()
+        execute_db_query("DELETE FROM warnings WHERE guild_id = ? AND user_id = ?", (ctx.guild.id, member.id))
 
         embed = discord.Embed(title="Warnings Cleared", description=f"All warnings have been cleared for {member.mention}.", color=discord.Color.green())
 
-        # Try to delete all warning messages
         deleted_count = 0
         for message_id in message_ids:
             try:

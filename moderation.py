@@ -1,20 +1,15 @@
 import discord
 from discord.commands import Option
 from discord.ext import commands, tasks
-import sqlite3
 import datetime
 from utilities import sendToModChannel, findRolesByPermission
+from db_utils import execute_db_query
 
 def setup_moderation(bot):
-    conn = sqlite3.connect('peacekeeper.db')
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS temporary_roles
-                 (guild_id INTEGER, user_id INTEGER, role_id INTEGER, expiry_time TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS mod_channels
-                    (guild_id INTEGER, channel_id INTEGER)''')
-    conn.commit()
-
-
+    execute_db_query('''CREATE TABLE IF NOT EXISTS temporary_roles
+                    (guild_id INTEGER, user_id INTEGER, role_id INTEGER, expiry_time TEXT)''')
+    execute_db_query('''CREATE TABLE IF NOT EXISTS max_messages
+                    (guild_id INTEGER, max_messages INTEGER)''')
     @bot.slash_command(name="ban", description="Ban a user from the server")
     @commands.has_permissions(ban_members=True)
     async def ban(ctx, member: Option(discord.Member, "The member to ban"), reason: Option(str, "Reason for the ban", required=False)):
@@ -99,21 +94,16 @@ def setup_moderation(bot):
         if reason is None:
             reason = "No reason provided"
 
-        # Check if the bot's role is higher than the role to be assigned
         if ctx.guild.me.top_role <= role:
             await ctx.respond("I don't have permission to assign that role. My highest role must be above the role you're trying to assign.", ephemeral=True)
             return
 
-        # Assign the role
         await member.add_roles(role, reason=reason)
 
-        # Calculate expiry time
         expiry_time = datetime.datetime.now() + datetime.timedelta(minutes=duration)
 
-        # Store in database
-        c.execute("INSERT INTO temporary_roles VALUES (?, ?, ?, ?)", 
+        execute_db_query("INSERT INTO temporary_roles VALUES (?, ?, ?, ?)", 
                   (ctx.guild.id, member.id, role.id, expiry_time.isoformat()))
-        conn.commit()
 
         embed = discord.Embed(title="Temporary Role Assigned", color=discord.Color.blue())
         embed.add_field(name="Member", value=member.mention, inline=False)
@@ -129,8 +119,7 @@ def setup_moderation(bot):
     @tasks.loop(minutes=1)
     async def check_expired_roles():
         current_time = datetime.datetime.now().isoformat()
-        c.execute("SELECT * FROM temporary_roles WHERE expiry_time <= ?", (current_time,))
-        expired_roles = c.fetchall()
+        expired_roles = execute_db_query("SELECT * FROM temporary_roles WHERE expiry_time <= ?", (current_time,))
 
         for guild_id, user_id, role_id, _ in expired_roles:
             guild = bot.get_guild(guild_id)
@@ -140,25 +129,20 @@ def setup_moderation(bot):
                 if member and role:
                     await member.remove_roles(role, reason="Temporary role expired")
 
-                    # Create and send an embed to the log channel
                     embed = discord.Embed(title="Temporary Role Expired", color=discord.Color.orange())
                     embed.add_field(name="Member", value=member.mention, inline=False)
                     embed.add_field(name="Role", value=role.mention, inline=False)
 
-                    # Attempt to send the embed to the log channel
                     try:
-                        c.execute("SELECT channel_id FROM log_channels WHERE guild_id = ?", (guild_id,))
-                        log_channel_id = c.fetchone()
+                        log_channel_id = execute_db_query("SELECT channel_id FROM log_channels WHERE guild_id = ?", (guild_id,))
                         if log_channel_id:
-                            log_channel = guild.get_channel(log_channel_id[0])
+                            log_channel = guild.get_channel(log_channel_id[0][0])
                             if log_channel:
                                 await log_channel.send(embed=embed)
                     except Exception as e:
                         print(f"Error sending log message: {e}")
 
-        # Remove expired entries from the database
-        c.execute("DELETE FROM temporary_roles WHERE expiry_time <= ?", (current_time,))
-        conn.commit()
+        execute_db_query("DELETE FROM temporary_roles WHERE expiry_time <= ?", (current_time,))
 
     @check_expired_roles.before_loop
     async def before_check_expired_roles():
@@ -185,8 +169,7 @@ def setup_moderation(bot):
     @bot.slash_command(name="set_mod_channel", description="Set the mod log channel")
     @commands.has_permissions(manage_guild=True)
     async def set_mod_channel(ctx, channel: Option(discord.TextChannel, "The channel to set as the mod log channel")):
-        c.execute("INSERT OR REPLACE INTO mod_channels VALUES (?, ?)", (ctx.guild.id, channel.id))
-        conn.commit()
+        execute_db_query("INSERT OR REPLACE INTO mod_channels VALUES (?, ?)", (ctx.guild.id, channel.id))
         embed = discord.Embed(title="Mod Log Channel Set", description=f"{channel.mention} has been set as the mod log channel.", color=discord.Color.blue())
         file = discord.File("PeaceKeeper.png", filename="PeaceKeeper.png")
         embed.set_thumbnail(url="attachment://PeaceKeeper.png")
@@ -194,7 +177,6 @@ def setup_moderation(bot):
     
     @bot.slash_command(name="report", description="Report a user")
     async def report(ctx, member: discord.Member, reason: str):
-
         embed = discord.Embed(title="User Reported", description=f"{member.mention} has been reported by {ctx.author.mention}.", color=discord.Color.red())
         embed.add_field(name="Reason", value=reason)
         embed2 = discord.Embed(title="User Reported", description=f"{ctx.author.mention} has reported {member.mention}.", color=discord.Color.red())
@@ -203,5 +185,33 @@ def setup_moderation(bot):
         embed.set_thumbnail(url="attachment://PeaceKeeper.png")
         embed2.set_thumbnail(url="attachment://PeaceKeeper.png")
         await ctx.respond(embed=embed2, file=file)
-        await sendToModChannel(ctx, embed, conn, c, True)
+        await sendToModChannel(ctx, embed, True)
+    
+    @bot.slash_command(name="set_max_messages", description="Set the maximum number of messages users can send in a minute")
+    @commands.has_permissions(manage_messages=True)
+    async def set_max_messages(ctx, max_messages: Option(int, "Maximum number of messages per minute")):
+        if max_messages < 1:
+            await ctx.respond("The maximum number of messages must be at least 1.", ephemeral=True)
+            return
+
+        # delete old max_messages value if it exists
+        execute_db_query("DELETE FROM max_messages WHERE guild_id = ?", (ctx.guild.id,))
+        execute_db_query("INSERT INTO max_messages VALUES (?, ?)", (ctx.guild.id, max_messages))
+
+        embed = discord.Embed(title="Max Messages Updated", description=f"Users can now send a maximum of {max_messages} messages per minute.", color=discord.Color.blue())
+        file = discord.File("PeaceKeeper.png", filename="PeaceKeeper.png")
+        embed.set_thumbnail(url="attachment://PeaceKeeper.png")
+        await ctx.respond(embed=embed, file=file)
+
+    @bot.slash_command(name="get_max_messages", description="Get the current maximum number of messages per minute")
+    @commands.has_permissions(manage_messages=True)
+    async def get_max_messages(ctx):
+        result = execute_db_query("SELECT max_messages FROM max_messages WHERE guild_id = ?", (ctx.guild.id,))
+        max_messages = result[0][0] if result else 10  # Default to 10 if not set
+
+        embed = discord.Embed(title="Current Max Messages", description=f"The current maximum is {max_messages} messages per minute.", color=discord.Color.blue())
+        file = discord.File("PeaceKeeper.png", filename="PeaceKeeper.png")
+        embed.set_thumbnail(url="attachment://PeaceKeeper.png")
+        await ctx.respond(embed=embed, file=file)
+
     check_expired_roles.start()

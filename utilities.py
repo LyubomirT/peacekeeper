@@ -1,18 +1,13 @@
 import discord
 from discord.ext import commands
-import sqlite3
-import datetime
 import PIL.Image
 import PIL.ImageDraw
 import PIL.ImageFont
 import os
+from db_utils import execute_db_query
+import datetime
 
 def setup_utilities(bot):
-
-    # initialize the database
-    conn = sqlite3.connect('peacekeeper.db')
-    c = conn.cursor()   
-
     @bot.slash_command(name="server_info", description="Get information about the server")
     async def server_info(ctx):
         guild = ctx.guild
@@ -49,7 +44,6 @@ def setup_utilities(bot):
         else:
             await ctx.respond(embed=embed, file=file)
             os.remove("thumbnail.png")
-        
     
     @bot.slash_command(name="user_info", description="Get information about a user")
     @commands.has_permissions(kick_members=True)
@@ -84,7 +78,6 @@ def setup_utilities(bot):
     async def roles(ctx):
         roles = ctx.guild.roles
         roles.reverse()
-        # split the roles into chunks of 50
         chunks = [roles[i:i + 50] for i in range(0, len(roles), 50)]
         for chunk in chunks:
             embed = discord.Embed(title="Roles", description="\n".join([role.mention for role in chunk]), color=discord.Color.blurple())
@@ -94,7 +87,6 @@ def setup_utilities(bot):
     async def user_roles(ctx, user: discord.Member):
         roles = user.roles
         roles.reverse()
-        # split the roles into chunks of 50
         chunks = [roles[i:i + 50] for i in range(0, len(roles), 50)]
         for chunk in chunks:
             embed = discord.Embed(title=f"{user.name}'s Roles", description="\n".join([role.mention for role in chunk]), color=discord.Color.blurple())
@@ -103,7 +95,6 @@ def setup_utilities(bot):
     @bot.slash_command(name="create_embed", description="Create a custom embed")
     @commands.has_permissions(manage_messages=True)
     async def create_embed(ctx, title: str, description: str, color: str, thumbnail: str = None, image: str = None, footer: str = None, footer_icon: str = None, timestamp: bool = False, author: bool = True):
-        # convert the color to a discord.Color object from a hex string
         if not color.startswith("#") or len(color) != 7:
             await ctx.respond("Invalid color. Please provide a valid hex color code.")
             return
@@ -149,7 +140,7 @@ def setup_utilities(bot):
     @commands.has_permissions(manage_messages=True)
     async def user_to_id(ctx, user: discord.User):
         await ctx.respond(user.id)
-    
+
 async def findRolesByPermission(ctx, permission):
     roles = []
     for role in ctx.guild.roles:
@@ -159,13 +150,12 @@ async def findRolesByPermission(ctx, permission):
             roles.append(role)
     return roles
 
-async def sendToModChannel(ctx, message, conn, c, ping):
-    c.execute("SELECT * FROM mod_channels WHERE guild_id = ?", (ctx.guild.id,))
-    result = c.fetchone()
-    if result is None:
+async def sendToModChannel(ctx, message, ping):
+    result = execute_db_query("SELECT * FROM mod_channels WHERE guild_id = ?", (ctx.guild.id,))
+    if not result:
         await ctx.respond("Mod log channel not set.")
         return
-    channel_id = result[1]
+    channel_id = result[0][1]
     channel = await ctx.guild.fetch_channel(channel_id)
     if channel is None:
         await ctx.respond("Mod log channel not found.")

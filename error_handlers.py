@@ -25,7 +25,6 @@ def setup_error_handlers(bot):
         else:
             await ctx.respond("An error occurred while executing the command. Please try again later.", ephemeral=True)
             print(f"Unhandled error: {error}")
-            # log the error to a file
             import traceback
             with open("error.log", "a") as f:
                 traceback.print_exception(type(error), error, error.__traceback__, file=f)

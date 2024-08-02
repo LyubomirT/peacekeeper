@@ -1,17 +1,18 @@
 import discord
 from discord.commands import Option
-from discord.ext import commands
-import sqlite3
+from discord.ext import commands, tasks
 import re
+import datetime
+from db_utils import execute_db_query
 
 def setup_filter(bot):
-    conn = sqlite3.connect('peacekeeper.db')
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS filter
-                 (guild_id INTEGER, word TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS block_filter
-                 (guild_id INTEGER, block_type TEXT, is_blocked INTEGER)''')
-    conn.commit()
+
+    execute_db_query('''CREATE TABLE IF NOT EXISTS filter
+                    (guild_id INTEGER, word TEXT)''')
+    
+    execute_db_query('''CREATE TABLE IF NOT EXISTS block_filter
+                    (guild_id INTEGER, block_type TEXT, is_blocked INTEGER)''')
+    message_counts_min = {}
 
     block_list = ["discord_url", "telegram_url", "twitch_url", "youtube_url", "facebook_url", "twitter_url", "reddit_url", "instagram_url", "github_url",
                   "file", "image", "video", "audio", "attachment", "invite", "emoji", "custom_emoji", "role_mention", "everyone_mention", "here_mention",
@@ -54,25 +55,22 @@ def setup_filter(bot):
     @bot.slash_command(name="add_filter", description="Add a word to the filter")
     @commands.has_permissions(manage_messages=True)
     async def add_filter(ctx, word: Option(str, "Word to add to the filter")):
-        c.execute("INSERT INTO filter VALUES (?, ?)", (ctx.guild.id, word.lower()))
-        conn.commit()
+        execute_db_query("INSERT INTO filter VALUES (?, ?)", (ctx.guild.id, word.lower()))
         embed = discord.Embed(title="Word Added", description=f"'{word}' has been added to the filter.", color=discord.Color.green())
         await ctx.respond(embed=embed)
 
     @bot.slash_command(name="remove_filter", description="Remove a word from the filter")
     @commands.has_permissions(manage_messages=True)
     async def remove_filter(ctx, word: Option(str, "Word to remove from the filter")):
-        c.execute("DELETE FROM filter WHERE guild_id = ? AND word = ?", (ctx.guild.id, word.lower()))
-        conn.commit()
+        execute_db_query("DELETE FROM filter WHERE guild_id = ? AND word = ?", (ctx.guild.id, word.lower()))
         embed = discord.Embed(title="Word Removed", description=f"'{word}' has been removed from the filter.", color=discord.Color.green())
         await ctx.respond(embed=embed)
 
     @bot.slash_command(name="reset_filter", description="Reset the entire filter")
     @commands.has_permissions(administrator=True)
     async def reset_filter(ctx):
-        c.execute("DELETE FROM filter WHERE guild_id = ?", (ctx.guild.id,))
-        c.execute("DELETE FROM block_filter WHERE guild_id = ?", (ctx.guild.id,))
-        conn.commit()
+        execute_db_query("DELETE FROM filter WHERE guild_id = ?", (ctx.guild.id,))
+        execute_db_query("DELETE FROM block_filter WHERE guild_id = ?", (ctx.guild.id,))
         embed = discord.Embed(title="Filter Reset", description="The filter has been reset for this server.", color=discord.Color.green())
         await ctx.respond(embed=embed)
 
@@ -83,8 +81,7 @@ def setup_filter(bot):
             await ctx.respond("Invalid block type. Please choose from the autocomplete list.")
             return
         
-        c.execute("INSERT OR REPLACE INTO block_filter VALUES (?, ?, ?)", (ctx.guild.id, block_type, 1))
-        conn.commit()
+        execute_db_query("INSERT OR REPLACE INTO block_filter VALUES (?, ?, ?)", (ctx.guild.id, block_type, 1))
         embed = discord.Embed(title="Content Blocked", description=f"'{block_type}' has been blocked in this server.", color=discord.Color.green())
         await ctx.respond(embed=embed)
 
@@ -95,16 +92,15 @@ def setup_filter(bot):
             await ctx.respond("Invalid block type. Please choose from the autocomplete list.")
             return
         
-        c.execute("DELETE FROM block_filter WHERE guild_id = ? AND block_type = ?", (ctx.guild.id, block_type))
-        conn.commit()
+        execute_db_query("DELETE FROM block_filter WHERE guild_id = ? AND block_type = ?", (ctx.guild.id, block_type))
         embed = discord.Embed(title="Content Unblocked", description=f"'{block_type}' has been unblocked in this server.", color=discord.Color.green())
         await ctx.respond(embed=embed)
 
     @bot.slash_command(name="view_blocks", description="View the current block list")
     @commands.has_permissions(manage_messages=True)
     async def view_blocks(ctx):
-        c.execute("SELECT block_type FROM block_filter WHERE guild_id = ? AND is_blocked = 1", (ctx.guild.id,))
-        blocked_types = [row[0] for row in c.fetchall()]
+        blocked_types = execute_db_query("SELECT block_type FROM block_filter WHERE guild_id = ? AND is_blocked = 1", (ctx.guild.id,))
+        blocked_types = [row[0] for row in blocked_types]
         
         if not blocked_types:
             embed = discord.Embed(title="Block List", description="No content types are currently blocked.", color=discord.Color.blue())
@@ -117,10 +113,32 @@ def setup_filter(bot):
     async def on_message(message):
         if message.author.bot:
             return
-        
+    
+        # Check for spam
+        if message.guild.id not in message_counts_min:
+            message_counts_min[message.guild.id] = {}
+        if message.author.id not in message_counts_min[message.guild.id]:
+            message_counts_min[message.guild.id][message.author.id] = 0
+        message_counts_min[message.guild.id][message.author.id] += 1
+
+        # Fetch the latest max_messages value from the database
+        result = execute_db_query("SELECT max_messages FROM max_messages WHERE guild_id = ?", (message.guild.id,))
+        max_messages = result[0][0] if result else 10  # Default to 10 if not set
+
+        if message_counts_min.get(message.guild.id, {}).get(message.author.id, 0) > max_messages:
+            if message_counts_min.get(message.guild.id, {}).get(message.author.id, 0) > max_messages + 10:
+                await message.author.timeout_for(duration=datetime.timedelta(minutes=1), reason="Spamming")
+                embed = discord.Embed(title="Spam Warning", description=f"{message.author.mention} has been timed out for spamming.", color=discord.Color.red())
+                await message.channel.send(embed=embed)
+                return
+            embed = discord.Embed(title="Hold your horses!", description="You're sending messages too quickly. Please slow down.", color=discord.Color.red())
+            await message.channel.send(message.author.mention, embed=embed)
+            await message.delete()
+            return
+
         # Block filter
-        c.execute("SELECT block_type FROM block_filter WHERE guild_id = ? AND is_blocked = 1", (message.guild.id,))
-        blocked_types = [row[0] for row in c.fetchall()]
+        blocked_types = execute_db_query("SELECT block_type FROM block_filter WHERE guild_id = ? AND is_blocked = 1", (message.guild.id,))
+        blocked_types = [row[0] for row in blocked_types]
 
         for block_type in blocked_types:
             if block_type in block_patterns:
@@ -131,8 +149,8 @@ def setup_filter(bot):
                     return
 
         # Word filter
-        c.execute("SELECT word FROM filter WHERE guild_id = ?", (message.guild.id,))
-        filtered_words = [row[0] for row in c.fetchall()]
+        filtered_words = execute_db_query("SELECT word FROM filter WHERE guild_id = ?", (message.guild.id,))
+        filtered_words = [row[0] for row in filtered_words]
 
         content = message.content.lower()
         for word in filtered_words:
@@ -147,8 +165,8 @@ def setup_filter(bot):
     @bot.slash_command(name="view_filter", description="View the current filter list")
     @commands.has_permissions(manage_messages=True)
     async def view_filter(ctx):
-        c.execute("SELECT word FROM filter WHERE guild_id = ?", (ctx.guild.id,))
-        filtered_words = [row[0] for row in c.fetchall()]
+        filtered_words = execute_db_query("SELECT word FROM filter WHERE guild_id = ?", (ctx.guild.id,))
+        filtered_words = [row[0] for row in filtered_words]
         
         if not filtered_words:
             embed = discord.Embed(title="Filter List", description="The filter list is currently empty.", color=discord.Color.blue())
@@ -156,3 +174,9 @@ def setup_filter(bot):
             embed = discord.Embed(title="Filter List", description=", ".join(filtered_words), color=discord.Color.blue())
         
         await ctx.respond(embed=embed)
+    
+    @tasks.loop(minutes=1)
+    async def reset_spam_tracker():
+        message_counts_min.clear()
+
+    reset_spam_tracker.start()

@@ -1,17 +1,14 @@
 import discord
 from discord.commands import Option
 from discord.ext import commands
-import sqlite3
 from datetime import datetime
+from db_utils import execute_db_query
 
 def setup_logs(bot):
-    conn = sqlite3.connect('peacekeeper.db')
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS log_channels
+    execute_db_query('''CREATE TABLE IF NOT EXISTS log_channels
                  (guild_id INTEGER, channel_id INTEGER)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS log_settings
+    execute_db_query('''CREATE TABLE IF NOT EXISTS log_settings
                  (guild_id INTEGER, aspect TEXT, enabled INTEGER)''')
-    conn.commit()
 
     log_aspects = [
         "kick", "ban", "unban", "join", "leave", "message_delete", "message_edit",
@@ -24,8 +21,7 @@ def setup_logs(bot):
     @bot.slash_command(name="set_log_channel", description="Set the log channel for the server")
     @commands.has_permissions(administrator=True)
     async def set_log_channel(ctx, channel: Option(discord.TextChannel, "The channel to set as log channel")):
-        c.execute("INSERT OR REPLACE INTO log_channels VALUES (?, ?)", (ctx.guild.id, channel.id))
-        conn.commit()
+        execute_db_query("INSERT OR REPLACE INTO log_channels VALUES (?, ?)", (ctx.guild.id, channel.id))
         embed = discord.Embed(title="Log Channel Set", description=f"Log channel has been set to {channel.mention}", color=discord.Color.green())
         await ctx.respond(embed=embed)
 
@@ -38,16 +34,13 @@ def setup_logs(bot):
             return
         
         if aspect == "all":
-            for aspect in log_aspects[:-1]:
-                c.execute("INSERT OR REPLACE INTO log_settings VALUES (?, ?, ?)", (ctx.guild.id, aspect, 1))
-            conn.commit()
+            for asp in log_aspects[:-1]:
+                execute_db_query("INSERT OR REPLACE INTO log_settings VALUES (?, ?, ?)", (ctx.guild.id, asp, 1))
             embed = discord.Embed(title="Log Aspect Enabled", description="All log aspects have been enabled.", color=discord.Color.green())
-            await ctx.respond(embed=embed)
-            return
-
-        c.execute("INSERT OR REPLACE INTO log_settings VALUES (?, ?, ?)", (ctx.guild.id, aspect, 1))
-        conn.commit()
-        embed = discord.Embed(title="Log Aspect Enabled", description=f"The {aspect} log aspect has been enabled.", color=discord.Color.green())
+        else:
+            execute_db_query("INSERT OR REPLACE INTO log_settings VALUES (?, ?, ?)", (ctx.guild.id, aspect, 1))
+            embed = discord.Embed(title="Log Aspect Enabled", description=f"The {aspect} log aspect has been enabled.", color=discord.Color.green())
+        
         await ctx.respond(embed=embed)
 
     @bot.slash_command(name="disable_log", description="Disable a log aspect")
@@ -59,26 +52,21 @@ def setup_logs(bot):
             return
         
         if aspect == "all":
-            for aspect in log_aspects[:-1]:
-                c.execute("INSERT OR REPLACE INTO log_settings VALUES (?, ?, ?)", (ctx.guild.id, aspect, 0))
-            conn.commit()
+            for asp in log_aspects[:-1]:
+                execute_db_query("INSERT OR REPLACE INTO log_settings VALUES (?, ?, ?)", (ctx.guild.id, asp, 0))
             embed = discord.Embed(title="Log Aspect Disabled", description="All log aspects have been disabled.", color=discord.Color.green())
-            await ctx.respond(embed=embed)
-            return
-
-        c.execute("INSERT OR REPLACE INTO log_settings VALUES (?, ?, ?)", (ctx.guild.id, aspect, 0))
-        conn.commit()
-        embed = discord.Embed(title="Log Aspect Disabled", description=f"The {aspect} log aspect has been disabled.", color=discord.Color.green())
+        else:
+            execute_db_query("INSERT OR REPLACE INTO log_settings VALUES (?, ?, ?)", (ctx.guild.id, aspect, 0))
+            embed = discord.Embed(title="Log Aspect Disabled", description=f"The {aspect} log aspect has been disabled.", color=discord.Color.green())
+        
         await ctx.respond(embed=embed)
 
     async def log_event(guild, aspect, embed):
-        c.execute("SELECT channel_id FROM log_channels WHERE guild_id = ?", (guild.id,))
-        result = c.fetchone()
+        result = execute_db_query("SELECT channel_id FROM log_channels WHERE guild_id = ?", (guild.id,))
         if result:
-            channel_id = result[0]
-            c.execute("SELECT enabled FROM log_settings WHERE guild_id = ? AND aspect = ?", (guild.id, aspect))
-            enabled = c.fetchone()
-            if enabled and enabled[0]:
+            channel_id = result[0][0]
+            enabled = execute_db_query("SELECT enabled FROM log_settings WHERE guild_id = ? AND aspect = ?", (guild.id, aspect))
+            if enabled and enabled[0][0]:
                 channel = guild.get_channel(channel_id)
                 if channel:
                     await channel.send(embed=embed)
@@ -161,7 +149,6 @@ def setup_logs(bot):
 
     @bot.event
     async def on_guild_role_update(before, after):
-        print("Accessed")
         if before.name != after.name:
             embed = discord.Embed(title="Role Updated", description=f"The role '{before.name}' was renamed to '{after.name}'.", color=discord.Color.blue())
             await log_event(after.guild, "role_update", embed)
@@ -265,10 +252,9 @@ def setup_logs(bot):
     @bot.slash_command(name="view_log_settings", description="View the log settings for the server")
     @commands.has_permissions(administrator=True)
     async def view_log_settings(ctx):
-        c.execute("SELECT aspect, enabled FROM log_settings WHERE guild_id = ?", (ctx.guild.id,))
-        settings = c.fetchall()
+        settings = execute_db_query("SELECT aspect, enabled FROM log_settings WHERE guild_id = ?", (ctx.guild.id,))
         embed = discord.Embed(title="Log Settings", color=discord.Color.blue())
+        embed.description = ""
         for aspect, enabled in settings:
             embed.description += f"{aspect}: {'Enabled' if enabled else 'Disabled'}\n"
         await ctx.respond(embed=embed)
-    
