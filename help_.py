@@ -88,6 +88,7 @@ def setup_help(bot):
 
     @bot.slash_command(name="help", description="Get help with PeaceKeeper commands")
     async def help(ctx):
+        await ctx.defer()
         # Provide general help with pagination
         embeds = create_help_embeds()
         view = HelpView(embeds)
@@ -95,6 +96,7 @@ def setup_help(bot):
 
     @bot.slash_command(name="setup_guide", description="Get a guide on how to set up PeaceKeeper")
     async def setup_guide(ctx):
+        await ctx.defer()
         embed = discord.Embed(title="PeaceKeeper Setup Guide", color=discord.Color.blue())
         embed.add_field(name="Step 1: Set up logging", value="Use `/set_log_channel` to set up a logging channel", inline=False)
         embed.add_field(name="Step 2: Configure logs", value="Use `/enable_log` to enable specific log aspects", inline=False)
@@ -107,6 +109,7 @@ def setup_help(bot):
 
     @bot.slash_command(name="normal_user_guide", description="Get a guide for normal server members")
     async def normal_user_guide(ctx):
+        await ctx.defer()
         embed = discord.Embed(title="PeaceKeeper User Guide", color=discord.Color.green())
         embed.add_field(name="Server Rules", value="Make sure to read and follow the server rules to avoid warnings or bans.", inline=False)
         embed.add_field(name="Reporting Issues", value="If you see any rule violations, report them to the moderators.", inline=False)
