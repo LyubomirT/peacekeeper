@@ -127,7 +127,9 @@ def setup_filter(bot):
             if word in content:
                 censored_content = content.replace(word, f"||{word}||")
                 await message.delete()
-                await message.channel.send(f"{message.author.mention} said: {censored_content}")
+                censored_content_chunks = [censored_content[i:i+2000] for i in range(0, len(censored_content), 2000)]
+                for chunk in censored_content_chunks:
+                    await message.channel.send(f"{message.author.mention} said: {chunk}")
                 return
 
         # Block filter
