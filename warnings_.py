@@ -68,6 +68,7 @@ def setup_warnings(bot):
     @bot.slash_command(name="warn", description="Warn a user")
     @commands.has_permissions(kick_members=True)
     async def warn(ctx, member: Option(discord.Member, "The member to warn"), reason: Option(str, "Reason for the warning")):
+        await ctx.defer()
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         try:
@@ -85,6 +86,7 @@ def setup_warnings(bot):
     @bot.slash_command(name="warnings", description="View warnings for a user")
     @commands.has_permissions(kick_members=True)
     async def warnings(ctx, member: Option(discord.Member, "The member to check warnings for")):
+        await ctx.defer()
         warnings = execute_db_query("SELECT * FROM warnings WHERE guild_id = ? AND user_id = ?", (ctx.guild.id, member.id))
 
         if not warnings:
@@ -98,6 +100,7 @@ def setup_warnings(bot):
     @bot.slash_command(name="remove_warning", description="Remove a specific warning from a user")
     @commands.has_permissions(kick_members=True)
     async def remove_warning(ctx, member: Option(discord.Member, "The member to remove a warning from"), warning_index: Option(int, "The index of the warning to remove")):
+        await ctx.defer()
         warnings = execute_db_query("SELECT * FROM warnings WHERE guild_id = ? AND user_id = ?", (ctx.guild.id, member.id))
 
         if not warnings:
@@ -129,6 +132,7 @@ def setup_warnings(bot):
     @bot.slash_command(name="clear_warnings", description="Clear all warnings for a user")
     @commands.has_permissions(administrator=True)
     async def clear_warnings(ctx, member: Option(discord.Member, "The member to clear warnings for")):
+        await ctx.defer()
         warnings = execute_db_query("SELECT message_id FROM warnings WHERE guild_id = ? AND user_id = ?", (ctx.guild.id, member.id))
         message_ids = [row[0] for row in warnings if row[0] is not None]
 
