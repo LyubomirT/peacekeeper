@@ -13,6 +13,7 @@ def setup_moderation(bot):
     @bot.slash_command(name="ban", description="Ban a user from the server")
     @commands.has_permissions(ban_members=True)
     async def ban(ctx, member: Option(discord.Member, "The member to ban"), reason: Option(str, "Reason for the ban", required=False)):
+        await ctx.defer()
         if reason is None:
             reason = "No reason provided"
         
@@ -26,6 +27,7 @@ def setup_moderation(bot):
     @bot.slash_command(name="kick", description="Kick a user from the server")
     @commands.has_permissions(kick_members=True)
     async def kick(ctx, member: Option(discord.Member, "The member to kick"), reason: Option(str, "Reason for the kick", required=False)):
+        await ctx.defer()
         if reason is None:
             reason = "No reason provided"
         
@@ -39,6 +41,7 @@ def setup_moderation(bot):
     @bot.slash_command(name="timeout", description="Timeout a user")
     @commands.has_permissions(moderate_members=True)
     async def timeout(ctx, member: Option(discord.Member, "The member to timeout"), duration: Option(int, "Duration in minutes"), reason: Option(str, "Reason for the timeout", required=False)):
+        await ctx.defer()
         if reason is None:
             reason = "No reason provided"
         
@@ -52,6 +55,7 @@ def setup_moderation(bot):
     @bot.slash_command(name="unban", description="Unban a user from the server")
     @commands.has_permissions(ban_members=True)
     async def unban(ctx, member: Option(discord.User, "The user to unban"), reason: Option(str, "Reason for the unban", required=False)):
+        await ctx.defer()
         if reason is None:
             reason = "No reason provided"
         
@@ -65,6 +69,7 @@ def setup_moderation(bot):
     @bot.slash_command(name="untimeout", description="Remove a timeout from a user")
     @commands.has_permissions(moderate_members=True)
     async def untimeout(ctx, member: Option(discord.Member, "The member to untimeout"), reason: Option(str, "Reason for the untimeout", required=False)):
+        await ctx.defer()
         if reason is None:
             reason = "No reason provided"
         
@@ -78,6 +83,7 @@ def setup_moderation(bot):
     @bot.slash_command(name="clear", description="Clear a specified number of messages")
     @commands.has_permissions(manage_messages=True)
     async def clear(ctx, amount: Option(int, "Number of messages to clear")):
+        await ctx.defer()
         await ctx.channel.purge(limit=amount + 1)  # +1 to include the command message
         embed = discord.Embed(title="Chat Cleared", description=f"{amount} messages have been cleared.", color=discord.Color.blue())
         file = discord.File("PeaceKeeper.png", filename="PeaceKeeper.png")
@@ -91,6 +97,7 @@ def setup_moderation(bot):
                        role: Option(discord.Role, "The role to assign"),
                        duration: Option(int, "Duration in minutes"),
                        reason: Option(str, "Reason for assigning the temporary role", required=False)):
+        await ctx.defer()
         if reason is None:
             reason = "No reason provided"
 
@@ -151,6 +158,7 @@ def setup_moderation(bot):
     @bot.slash_command(name="add_role", description="Add a role to a user")
     @commands.has_permissions(manage_roles=True)
     async def add_role(ctx, member: Option(discord.Member, "The member to add the role to"), role: Option(discord.Role, "The role to add")):
+        await ctx.defer()
         await member.add_roles(role)
         embed = discord.Embed(title="Role Added", description=f"{role.mention} has been added to {member.mention}.", color=discord.Color.green())
         file = discord.File("PeaceKeeper.png", filename="PeaceKeeper.png")
@@ -160,6 +168,7 @@ def setup_moderation(bot):
     @bot.slash_command(name="remove_role", description="Remove a role from a user")
     @commands.has_permissions(manage_roles=True)
     async def remove_role(ctx, member: Option(discord.Member, "The member to remove the role from"), role: Option(discord.Role, "The role to remove")):
+        await ctx.defer()
         await member.remove_roles(role)
         embed = discord.Embed(title="Role Removed", description=f"{role.mention} has been removed from {member.mention}.", color=discord.Color.red())
         file = discord.File("PeaceKeeper.png", filename="PeaceKeeper.png")
@@ -169,6 +178,7 @@ def setup_moderation(bot):
     @bot.slash_command(name="set_mod_channel", description="Set the mod log channel")
     @commands.has_permissions(manage_guild=True)
     async def set_mod_channel(ctx, channel: Option(discord.TextChannel, "The channel to set as the mod log channel")):
+        await ctx.defer()
         execute_db_query("INSERT OR REPLACE INTO mod_channels VALUES (?, ?)", (ctx.guild.id, channel.id))
         embed = discord.Embed(title="Mod Log Channel Set", description=f"{channel.mention} has been set as the mod log channel.", color=discord.Color.blue())
         file = discord.File("PeaceKeeper.png", filename="PeaceKeeper.png")
@@ -177,6 +187,7 @@ def setup_moderation(bot):
     
     @bot.slash_command(name="report", description="Report a user")
     async def report(ctx, member: discord.Member, reason: str):
+        await ctx.defer()
         embed = discord.Embed(title="User Reported", description=f"{member.mention} has been reported by {ctx.author.mention}.", color=discord.Color.red())
         embed.add_field(name="Reason", value=reason)
         embed2 = discord.Embed(title="User Reported", description=f"{ctx.author.mention} has reported {member.mention}.", color=discord.Color.red())
@@ -190,6 +201,7 @@ def setup_moderation(bot):
     @bot.slash_command(name="set_max_messages", description="Set the maximum number of messages users can send in a minute")
     @commands.has_permissions(manage_messages=True)
     async def set_max_messages(ctx, max_messages: Option(int, "Maximum number of messages per minute")):
+        await ctx.defer()
         if max_messages < 1:
             await ctx.respond("The maximum number of messages must be at least 1.", ephemeral=True)
             return
@@ -206,6 +218,7 @@ def setup_moderation(bot):
     @bot.slash_command(name="get_max_messages", description="Get the current maximum number of messages per minute")
     @commands.has_permissions(manage_messages=True)
     async def get_max_messages(ctx):
+        await ctx.defer()
         result = execute_db_query("SELECT max_messages FROM max_messages WHERE guild_id = ?", (ctx.guild.id,))
         max_messages = result[0][0] if result else 10  # Default to 10 if not set
 
