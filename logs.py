@@ -17,7 +17,8 @@ def setup_logs(bot):
         "kick", "ban", "unban", "join", "leave", "message_delete", "message_edit",
         "channel_create", "channel_delete", "channel_update", "role_create",
         "role_delete", "role_update", "nickname_change", "user_update",
-        "voice_state_update", "invite_create", "invite_delete", "member_timeout", "all"
+        "voice_state_update", "invite_create", "invite_delete", "member_timeout",
+        "role_add", "role_remove", "emoji_add", "emoji_remove", "role_permissions_update", "all"
     ]
 
     @bot.slash_command(name="set_log_channel", description="Set the log channel for the server")
@@ -160,9 +161,28 @@ def setup_logs(bot):
 
     @bot.event
     async def on_guild_role_update(before, after):
+        print("Accessed")
         if before.name != after.name:
             embed = discord.Embed(title="Role Updated", description=f"The role '{before.name}' was renamed to '{after.name}'.", color=discord.Color.blue())
             await log_event(after.guild, "role_update", embed)
+        
+        if before.color != after.color:
+            embed = discord.Embed(title="Role Color Updated", description=f"The color of role {after.mention} was updated.", color=discord.Color.blue())
+            embed.add_field(name="Before", value=before.color, inline=False)
+            embed.add_field(name="After", value=after.color, inline=False)
+            await log_event(after.guild, "role_update", embed)
+        
+        if before.permissions != after.permissions:
+            embed = discord.Embed(title="Role Permissions Updated", description=f"Permissions for role {after.mention} were updated", color=discord.Color.blue())
+            
+            changed_permissions = []
+            for perm, value in after.permissions:
+                if getattr(before.permissions, perm) != value:
+                    status = "Granted" if value else "Revoked"
+                    changed_permissions.append(f"{perm.replace('_', ' ').title()}: {status}")
+            
+            embed.add_field(name="Changed Permissions", value="\n".join(changed_permissions), inline=False)
+            await log_event(after.guild, "role_permissions_update", embed)
 
     @bot.event
     async def on_member_update(before, after):
@@ -180,6 +200,20 @@ def setup_logs(bot):
         if before.communication_disabled_until != None and after.communication_disabled_until == None:
             embed = discord.Embed(title="Member Untimeout", description=f"{before.mention} was untimed out.", color=discord.Color.green())
             await log_event(after.guild, "member_untimeout", embed)
+        
+        if before.roles != after.roles:
+            added_roles = set(after.roles) - set(before.roles)
+            removed_roles = set(before.roles) - set(after.roles)
+
+            if added_roles:
+                for role in added_roles:
+                    embed = discord.Embed(title="Role Added", description=f"{after.mention} was given the role {role.mention}", color=discord.Color.green())
+                    await log_event(after.guild, "role_add", embed)
+
+            if removed_roles:
+                for role in removed_roles:
+                    embed = discord.Embed(title="Role Removed", description=f"{after.mention} was removed from the role {role.mention}", color=discord.Color.orange())
+                    await log_event(after.guild, "role_remove", embed)
 
     @bot.event
     async def on_user_update(before, after):
@@ -213,3 +247,28 @@ def setup_logs(bot):
         embed = discord.Embed(title="Invite Deleted", description=f"An invite was deleted", color=discord.Color.red())
         embed.add_field(name="Code", value=invite.code)
         await log_event(invite.guild, "invite_delete", embed)
+
+    @bot.event
+    async def on_guild_emojis_update(guild, before, after):
+        added_emojis = set(after) - set(before)
+        removed_emojis = set(before) - set(after)
+
+        for emoji in added_emojis:
+            embed = discord.Embed(title="Emoji Added", description=f"New emoji added: {str(emoji)}", color=discord.Color.green())
+            embed.set_thumbnail(url=emoji.url)
+            await log_event(guild, "emoji_add", embed)
+
+        for emoji in removed_emojis:
+            embed = discord.Embed(title="Emoji Removed", description=f"Emoji removed: {emoji.name}", color=discord.Color.orange())
+            await log_event(guild, "emoji_remove", embed)
+
+    @bot.slash_command(name="view_log_settings", description="View the log settings for the server")
+    @commands.has_permissions(administrator=True)
+    async def view_log_settings(ctx):
+        c.execute("SELECT aspect, enabled FROM log_settings WHERE guild_id = ?", (ctx.guild.id,))
+        settings = c.fetchall()
+        embed = discord.Embed(title="Log Settings", color=discord.Color.blue())
+        for aspect, enabled in settings:
+            embed.description += f"{aspect}: {'Enabled' if enabled else 'Disabled'}\n"
+        await ctx.respond(embed=embed)
+    
