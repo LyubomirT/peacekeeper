@@ -10,6 +10,7 @@ from error_handlers import setup_error_handlers
 from warnings_ import setup_warnings
 from utilities import setup_utilities
 from notes import setup_notes
+from help_ import setup_help
 
 load_dotenv()
 
@@ -38,6 +39,7 @@ def setup(bot):
     setup_warnings(bot)
     setup_utilities(bot)
     setup_notes(bot)
+    setup_help(bot)
 
 setup(bot)
 
