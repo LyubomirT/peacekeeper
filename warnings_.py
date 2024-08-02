@@ -99,6 +99,9 @@ def setup_warnings(bot):
             return
 
         warning = warnings[warning_index - 1]
+        if not warning:
+            await ctx.respond("Warning not found.")
+            return
         c.execute("DELETE FROM warnings WHERE guild_id = ? AND user_id = ? AND moderator_id = ? AND reason = ? AND timestamp = ? AND message_id = ?", warning)
         conn.commit()
 
@@ -113,6 +116,8 @@ def setup_warnings(bot):
                 embed.description += "\n\nWarning message could not be found."
             except discord.Forbidden:
                 embed.description += "\n\nBot doesn't have permission to delete the warning message."
+            except Exception as e:
+                embed.description += f"\n\nAn error occurred: {e}"
         
         await ctx.respond(embed=embed)
 
@@ -138,6 +143,9 @@ def setup_warnings(bot):
                 pass
             except discord.Forbidden:
                 embed.description += "\n\nSome warning messages could not be deleted due to missing permissions."
+                break
+            except Exception as e:
+                embed.description += f"\n\nAn error occurred: {e}"
                 break
 
         if deleted_count > 0:
