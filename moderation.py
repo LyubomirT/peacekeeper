@@ -3,12 +3,15 @@ from discord.commands import Option
 from discord.ext import commands, tasks
 import sqlite3
 import datetime
+from utilities import sendToModChannel, findRolesByPermission
 
 def setup_moderation(bot):
     conn = sqlite3.connect('peacekeeper.db')
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS temporary_roles
                  (guild_id INTEGER, user_id INTEGER, role_id INTEGER, expiry_time TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS mod_channels
+                    (guild_id INTEGER, channel_id INTEGER)''')
     conn.commit()
 
 
@@ -178,5 +181,27 @@ def setup_moderation(bot):
         file = discord.File("PeaceKeeper.png", filename="PeaceKeeper.png")
         embed.set_thumbnail(url="attachment://PeaceKeeper.png")
         await ctx.respond(embed=embed, file=file)
+    
+    @bot.slash_command(name="set_mod_channel", description="Set the mod log channel")
+    @commands.has_permissions(manage_guild=True)
+    async def set_mod_channel(ctx, channel: Option(discord.TextChannel, "The channel to set as the mod log channel")):
+        c.execute("INSERT OR REPLACE INTO mod_channels VALUES (?, ?)", (ctx.guild.id, channel.id))
+        conn.commit()
+        embed = discord.Embed(title="Mod Log Channel Set", description=f"{channel.mention} has been set as the mod log channel.", color=discord.Color.blue())
+        file = discord.File("PeaceKeeper.png", filename="PeaceKeeper.png")
+        embed.set_thumbnail(url="attachment://PeaceKeeper.png")
+        await ctx.respond(embed=embed, file=file)
+    
+    @bot.slash_command(name="report", description="Report a user")
+    async def report(ctx, member: discord.Member, reason: str):
 
+        embed = discord.Embed(title="User Reported", description=f"{member.mention} has been reported by {ctx.author.mention}.", color=discord.Color.red())
+        embed.add_field(name="Reason", value=reason)
+        embed2 = discord.Embed(title="User Reported", description=f"{ctx.author.mention} has reported {member.mention}.", color=discord.Color.red())
+        embed2.add_field(name="Reason", value=reason)
+        file = discord.File("PeaceKeeper.png", filename="PeaceKeeper.png")
+        embed.set_thumbnail(url="attachment://PeaceKeeper.png")
+        embed2.set_thumbnail(url="attachment://PeaceKeeper.png")
+        await ctx.respond(embed=embed2, file=file)
+        await sendToModChannel(ctx, embed, conn, c, True)
     check_expired_roles.start()

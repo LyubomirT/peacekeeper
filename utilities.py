@@ -9,6 +9,10 @@ import os
 
 def setup_utilities(bot):
 
+    # initialize the database
+    conn = sqlite3.connect('peacekeeper.db')
+    c = conn.cursor()   
+
     @bot.slash_command(name="server_info", description="Get information about the server")
     async def server_info(ctx):
         guild = ctx.guild
@@ -145,3 +149,30 @@ def setup_utilities(bot):
     @commands.has_permissions(manage_messages=True)
     async def user_to_id(ctx, user: discord.User):
         await ctx.respond(user.id)
+    
+async def findRolesByPermission(ctx, permission):
+    roles = []
+    for role in ctx.guild.roles:
+        if role.permissions.administrator:
+            roles.append(role)
+        elif getattr(role.permissions, permission):
+            roles.append(role)
+    return roles
+
+async def sendToModChannel(ctx, message, conn, c, ping):
+    c.execute("SELECT * FROM mod_channels WHERE guild_id = ?", (ctx.guild.id,))
+    result = c.fetchone()
+    if result is None:
+        await ctx.respond("Mod log channel not set.")
+        return
+    channel_id = result[1]
+    channel = await ctx.guild.fetch_channel(channel_id)
+    if channel is None:
+        await ctx.respond("Mod log channel not found.")
+        return          
+    modroles = await findRolesByPermission(ctx, "kick_members")  
+    modrolepings = " ".join([role.mention for role in modroles]) 
+    if isinstance(message, discord.Embed):
+        await channel.send(modrolepings if ping else None, embed=message)
+    else:
+        await channel.send(message, modrolepings if ping else None)
