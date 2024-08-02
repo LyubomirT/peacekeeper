@@ -10,6 +10,7 @@ import datetime
 def setup_utilities(bot):
     @bot.slash_command(name="server_info", description="Get information about the server")
     async def server_info(ctx):
+        await ctx.defer()
         guild = ctx.guild
         embed = discord.Embed(title=guild.name, description=f"ID: {guild.id}", color=discord.Color.blurple())
         
@@ -48,6 +49,7 @@ def setup_utilities(bot):
     @bot.slash_command(name="user_info", description="Get information about a user")
     @commands.has_permissions(kick_members=True)
     async def user_info(ctx, user: discord.User):
+        await ctx.defer()
         embed = discord.Embed(title=user.name, description=f"ID: {user.id}", color=discord.Color.blurple())
         embed.set_thumbnail(url=user.avatar)
         embed.add_field(name="Bot", value=user.bot)
@@ -58,6 +60,7 @@ def setup_utilities(bot):
     @bot.slash_command(name="role_info", description="Get information about a role")
     @commands.has_permissions(kick_members=True)
     async def role_info(ctx, role: discord.Role):
+        await ctx.defer()
         embed = discord.Embed(title=role.name, description=f"ID: {role.id}", color=role.color)
         embed.add_field(name="Color", value=role.color)
         embed.add_field(name="Members", value=len(role.members))
@@ -68,6 +71,7 @@ def setup_utilities(bot):
     @bot.slash_command(name="channel_info", description="Get information about a channel")
     @commands.has_permissions(kick_members=True)
     async def channel_info(ctx, channel: discord.TextChannel):
+        await ctx.defer()
         embed = discord.Embed(title=channel.name, description=f"ID: {channel.id}", color=discord.Color.blurple())
         embed.add_field(name="Category", value=channel.category)
         embed.add_field(name="Position", value=channel.position)
@@ -76,6 +80,7 @@ def setup_utilities(bot):
     
     @bot.slash_command(name="roles", description="List all roles in the server")
     async def roles(ctx):
+        await ctx.defer()
         roles = ctx.guild.roles
         roles.reverse()
         chunks = [roles[i:i + 50] for i in range(0, len(roles), 50)]
@@ -85,6 +90,7 @@ def setup_utilities(bot):
         
     @bot.slash_command(name="user_roles", description="List all roles of a user")
     async def user_roles(ctx, user: discord.Member):
+        await ctx.defer()
         roles = user.roles
         roles.reverse()
         chunks = [roles[i:i + 50] for i in range(0, len(roles), 50)]
@@ -95,6 +101,7 @@ def setup_utilities(bot):
     @bot.slash_command(name="create_embed", description="Create a custom embed")
     @commands.has_permissions(manage_messages=True)
     async def create_embed(ctx, title: str, description: str, color: str, thumbnail: str = None, image: str = None, footer: str = None, footer_icon: str = None, timestamp: bool = False, author: bool = True):
+        await ctx.defer()
         if not color.startswith("#") or len(color) != 7:
             await ctx.respond("Invalid color. Please provide a valid hex color code.")
             return
@@ -128,6 +135,7 @@ def setup_utilities(bot):
     @bot.slash_command(name="id_to_user", description="Convert a user ID to a user")
     @commands.has_permissions(manage_messages=True)
     async def id_to_user(ctx, user_id: int):
+        await ctx.defer()
         user = ctx.guild.get_member(user_id)
         if user is None:
             user = await bot.fetch_user(user_id)
