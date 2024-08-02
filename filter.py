@@ -117,6 +117,18 @@ def setup_filter(bot):
     async def on_message(message):
         if message.author.bot:
             return
+        
+        # Block filter
+        c.execute("SELECT block_type FROM block_filter WHERE guild_id = ? AND is_blocked = 1", (message.guild.id,))
+        blocked_types = [row[0] for row in c.fetchall()]
+
+        for block_type in blocked_types:
+            if block_type in block_patterns:
+                pattern = block_patterns[block_type]
+                if re.search(pattern, message.content):
+                    await message.delete()
+                    await message.channel.send(f"{message.author.mention}, your message was removed because it contained blocked content: {block_type}")
+                    return
 
         # Word filter
         c.execute("SELECT word FROM filter WHERE guild_id = ?", (message.guild.id,))
@@ -131,18 +143,6 @@ def setup_filter(bot):
                 for chunk in censored_content_chunks:
                     await message.channel.send(f"{message.author.mention} said: {chunk}")
                 return
-
-        # Block filter
-        c.execute("SELECT block_type FROM block_filter WHERE guild_id = ? AND is_blocked = 1", (message.guild.id,))
-        blocked_types = [row[0] for row in c.fetchall()]
-
-        for block_type in blocked_types:
-            if block_type in block_patterns:
-                pattern = block_patterns[block_type]
-                if re.search(pattern, message.content):
-                    await message.delete()
-                    await message.channel.send(f"{message.author.mention}, your message was removed because it contained blocked content: {block_type}")
-                    return
 
     @bot.slash_command(name="view_filter", description="View the current filter list")
     @commands.has_permissions(manage_messages=True)
