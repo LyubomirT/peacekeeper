@@ -55,6 +55,7 @@ def setup_filter(bot):
     @bot.slash_command(name="add_filter", description="Add a word to the filter")
     @commands.has_permissions(manage_messages=True)
     async def add_filter(ctx, word: Option(str, "Word to add to the filter")):
+        await ctx.defer()
         execute_db_query("INSERT INTO filter VALUES (?, ?)", (ctx.guild.id, word.lower()))
         embed = discord.Embed(title="Word Added", description=f"'{word}' has been added to the filter.", color=discord.Color.green())
         await ctx.respond(embed=embed)
@@ -62,6 +63,7 @@ def setup_filter(bot):
     @bot.slash_command(name="remove_filter", description="Remove a word from the filter")
     @commands.has_permissions(manage_messages=True)
     async def remove_filter(ctx, word: Option(str, "Word to remove from the filter")):
+        await ctx.defer()
         execute_db_query("DELETE FROM filter WHERE guild_id = ? AND word = ?", (ctx.guild.id, word.lower()))
         embed = discord.Embed(title="Word Removed", description=f"'{word}' has been removed from the filter.", color=discord.Color.green())
         await ctx.respond(embed=embed)
@@ -69,6 +71,7 @@ def setup_filter(bot):
     @bot.slash_command(name="reset_filter", description="Reset the entire filter")
     @commands.has_permissions(administrator=True)
     async def reset_filter(ctx):
+        await ctx.defer()
         execute_db_query("DELETE FROM filter WHERE guild_id = ?", (ctx.guild.id,))
         execute_db_query("DELETE FROM block_filter WHERE guild_id = ?", (ctx.guild.id,))
         embed = discord.Embed(title="Filter Reset", description="The filter has been reset for this server.", color=discord.Color.green())
@@ -77,6 +80,7 @@ def setup_filter(bot):
     @bot.slash_command(name="block", description="Block a specific type of content")
     @commands.has_permissions(manage_messages=True)
     async def block(ctx, block_type: Option(str, "Type of content to block", autocomplete=discord.utils.basic_autocomplete(block_list))):
+        await ctx.defer()
         if block_type not in block_list:
             await ctx.respond("Invalid block type. Please choose from the autocomplete list.")
             return
@@ -88,6 +92,7 @@ def setup_filter(bot):
     @bot.slash_command(name="unblock", description="Unblock a specific type of content")
     @commands.has_permissions(manage_messages=True)
     async def unblock(ctx, block_type: Option(str, "Type of content to unblock", autocomplete=discord.utils.basic_autocomplete(block_list))):
+        await ctx.defer()
         if block_type not in block_list:
             await ctx.respond("Invalid block type. Please choose from the autocomplete list.")
             return
@@ -99,6 +104,7 @@ def setup_filter(bot):
     @bot.slash_command(name="view_blocks", description="View the current block list")
     @commands.has_permissions(manage_messages=True)
     async def view_blocks(ctx):
+        await ctx.defer()
         blocked_types = execute_db_query("SELECT block_type FROM block_filter WHERE guild_id = ? AND is_blocked = 1", (ctx.guild.id,))
         blocked_types = [row[0] for row in blocked_types]
         
@@ -165,6 +171,7 @@ def setup_filter(bot):
     @bot.slash_command(name="view_filter", description="View the current filter list")
     @commands.has_permissions(manage_messages=True)
     async def view_filter(ctx):
+        await ctx.defer()
         filtered_words = execute_db_query("SELECT word FROM filter WHERE guild_id = ?", (ctx.guild.id,))
         filtered_words = [row[0] for row in filtered_words]
         
