@@ -39,7 +39,7 @@ def setup_moderation(bot):
         await ctx.respond(embed=embed, file=file)
 
     @bot.slash_command(name="timeout", description="Timeout a user")
-    @commands.has_permissions(timeout_members=True)
+    @commands.has_permissions(moderate_members=True)
     async def timeout(ctx, member: Option(discord.Member, "The member to timeout"), duration: Option(int, "Duration in minutes"), reason: Option(str, "Reason for the timeout", required=False)):
         await ctx.defer()
         if reason is None:
@@ -67,7 +67,7 @@ def setup_moderation(bot):
         await ctx.respond(embed=embed, file=file)
 
     @bot.slash_command(name="untimeout", description="Remove a timeout from a user")
-    @commands.has_permissions(timeout_members=True)
+    @commands.has_permissions(moderate_members=True)
     async def untimeout(ctx, member: Option(discord.Member, "The member to untimeout"), reason: Option(str, "Reason for the untimeout", required=False)):
         await ctx.defer()
         if reason is None:
