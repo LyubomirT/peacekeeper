@@ -47,7 +47,7 @@ def setup_utilities(bot):
             os.remove("thumbnail.png")
     
     @bot.slash_command(name="user_info", description="Get information about a user")
-    @commands.has_permissions(kick_members=True)
+    @commands.has_permissions(manage_users=True)
     async def user_info(ctx, user: discord.User):
         await ctx.defer()
         embed = discord.Embed(title=user.name, description=f"ID: {user.id}", color=discord.Color.blurple())
@@ -58,7 +58,7 @@ def setup_utilities(bot):
         await ctx.respond(embed=embed)
     
     @bot.slash_command(name="role_info", description="Get information about a role")
-    @commands.has_permissions(kick_members=True)
+    @commands.has_permissions(manage_roles=True)
     async def role_info(ctx, role: discord.Role):
         await ctx.defer()
         embed = discord.Embed(title=role.name, description=f"ID: {role.id}", color=role.color)
@@ -69,7 +69,7 @@ def setup_utilities(bot):
         await ctx.respond(embed=embed)
     
     @bot.slash_command(name="channel_info", description="Get information about a channel")
-    @commands.has_permissions(kick_members=True)
+    @commands.has_permissions(manage_channels=True)
     async def channel_info(ctx, channel: discord.TextChannel):
         await ctx.defer()
         embed = discord.Embed(title=channel.name, description=f"ID: {channel.id}", color=discord.Color.blurple())

@@ -52,7 +52,7 @@ def setup_notes(bot):
         return embed
 
     @bot.slash_command(name="add_note", description="Add a note to a user")
-    @commands.has_permissions(kick_members=True)
+    @commands.has_permissions(manage_messages=True)
     async def add_note(ctx, user: Option(discord.Member, "The user to add a note to"), note: Option(str, "The note to add")):
         await ctx.defer()
         timestamp = discord.utils.utcnow().strftime("%Y-%m-%d %H:%M:%S")
@@ -65,7 +65,7 @@ def setup_notes(bot):
         await ctx.respond(embed=embed)
 
     @bot.slash_command(name="view_notes", description="View notes for a user")
-    @commands.has_permissions(kick_members=True)
+    @commands.has_permissions(manage_messages=True)
     async def view_notes(ctx, user: Option(discord.Member, "The user to view notes for")):
         await ctx.defer()
         notes = execute_db_query("SELECT moderator_id, note, timestamp FROM user_notes WHERE guild_id = ? AND user_id = ?", 
@@ -80,7 +80,7 @@ def setup_notes(bot):
         await ctx.respond(embed=embed, view=view)
 
     @bot.slash_command(name="edit_note", description="Edit a note for a user")
-    @commands.has_permissions(kick_members=True)
+    @commands.has_permissions(manage_messages=True)
     async def edit_note(ctx, user: Option(discord.Member, "The user whose note to edit"), 
                         note_index: Option(int, "The index of the note to edit"), 
                         new_note: Option(str, "The new content of the note")):
@@ -107,7 +107,7 @@ def setup_notes(bot):
         await ctx.respond(embed=embed)
 
     @bot.slash_command(name="delete_note", description="Delete a note for a user")
-    @commands.has_permissions(kick_members=True)
+    @commands.has_permissions(manage_messages=True)
     async def delete_note(ctx, user: Option(discord.Member, "The user whose note to delete"), 
                           note_index: Option(int, "The index of the note to delete")):
         await ctx.defer()

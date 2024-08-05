@@ -39,7 +39,7 @@ def setup_moderation(bot):
         await ctx.respond(embed=embed, file=file)
 
     @bot.slash_command(name="timeout", description="Timeout a user")
-    @commands.has_permissions(moderate_members=True)
+    @commands.has_permissions(timeout_members=True)
     async def timeout(ctx, member: Option(discord.Member, "The member to timeout"), duration: Option(int, "Duration in minutes"), reason: Option(str, "Reason for the timeout", required=False)):
         await ctx.defer()
         if reason is None:
@@ -67,7 +67,7 @@ def setup_moderation(bot):
         await ctx.respond(embed=embed, file=file)
 
     @bot.slash_command(name="untimeout", description="Remove a timeout from a user")
-    @commands.has_permissions(moderate_members=True)
+    @commands.has_permissions(timeout_members=True)
     async def untimeout(ctx, member: Option(discord.Member, "The member to untimeout"), reason: Option(str, "Reason for the untimeout", required=False)):
         await ctx.defer()
         if reason is None:
@@ -199,7 +199,7 @@ def setup_moderation(bot):
         await sendToModChannel(ctx, embed, True)
     
     @bot.slash_command(name="set_max_messages", description="Set the maximum number of messages users can send in a minute")
-    @commands.has_permissions(manage_messages=True)
+    @commands.has_permissions(administrator=True)
     async def set_max_messages(ctx, max_messages: Option(int, "Maximum number of messages per minute")):
         await ctx.defer()
         if max_messages < 1:
@@ -216,7 +216,7 @@ def setup_moderation(bot):
         await ctx.respond(embed=embed, file=file)
 
     @bot.slash_command(name="get_max_messages", description="Get the current maximum number of messages per minute")
-    @commands.has_permissions(manage_messages=True)
+    @commands.has_permissions(administrator=True)
     async def get_max_messages(ctx):
         await ctx.defer()
         result = execute_db_query("SELECT max_messages FROM max_messages WHERE guild_id = ?", (ctx.guild.id,))
