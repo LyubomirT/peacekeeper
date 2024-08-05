@@ -47,7 +47,7 @@ def setup_utilities(bot):
             os.remove("thumbnail.png")
     
     @bot.slash_command(name="user_info", description="Get information about a user")
-    @commands.has_permissions(manage_users=True)
+    @commands.has_permissions(moderate_members=True)
     async def user_info(ctx, user: discord.User):
         await ctx.defer()
         embed = discord.Embed(title=user.name, description=f"ID: {user.id}", color=discord.Color.blurple())
