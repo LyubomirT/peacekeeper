@@ -1,5 +1,5 @@
 import discord
-from discord.commands import Option
+from discord.commands import Option, SlashCommandGroup
 from discord.ext import commands, tasks
 import re
 import datetime
@@ -12,6 +12,10 @@ def setup_filter(bot):
     
     execute_db_query('''CREATE TABLE IF NOT EXISTS block_filter
                     (guild_id INTEGER, block_type TEXT, is_blocked INTEGER)''')
+
+    execute_db_query('''CREATE TABLE IF NOT EXISTS automod_settings
+                    (guild_id INTEGER, setting TEXT, value INTEGER)''')
+
     message_counts_min = {}
 
     block_list = ["discord_url", "telegram_url", "twitch_url", "youtube_url", "facebook_url", "twitter_url", "reddit_url", "instagram_url", "github_url",
@@ -51,6 +55,31 @@ def setup_filter(bot):
         "italic": r"\*[^*]+\*",
         "underline": r"__[^_]+__"
     }
+
+    automod_settings = {
+        "caps_percent": {"name": "Excessive Caps", "description": "Percentage of uppercase characters allowed"},
+        "repeated_chars": {"name": "Repeated Characters", "description": "Maximum number of repeated characters allowed"},
+        "spam_messages": {"name": "Spam Messages", "description": "Maximum number of messages allowed per minute"},
+        "mention_limit": {"name": "Mention Limit", "description": "Maximum number of mentions allowed per message"},
+        "emoji_limit": {"name": "Emoji Limit", "description": "Maximum number of emojis allowed per message"},
+        "max_lines": {"name": "Maximum Lines", "description": "Maximum number of lines allowed per message"},
+        "max_words": {"name": "Maximum Words", "description": "Maximum number of words allowed per message"},
+        "zalgo_text": {"name": "Zalgo Text", "description": "Whether to filter out Zalgo text (0 for off, 1 for on)"}
+    }
+
+    def get_automod_value(value_str):
+        if value_str.lower() == "off":
+            return 0
+        elif value_str.lower() == "low":
+            return 25
+        elif value_str.lower() == "medium":
+            return 50
+        elif value_str.lower() == "high":
+            return 75
+        elif value_str.isdigit():
+            return int(value_str)
+        else:
+            return None
 
     @bot.slash_command(name="add_filter", description="Add a word to the filter")
     @commands.has_permissions(manage_messages=True)
@@ -115,11 +144,48 @@ def setup_filter(bot):
         
         await ctx.respond(embed=embed)
 
+    automod = SlashCommandGroup("automod", "Automod configuration commands")
+
+    @automod.command(name="set", description="Configure an automod setting")
+    @commands.has_permissions(administrator=True)
+    async def set_automod(ctx, 
+                          setting: Option(str, "Automod setting to configure", autocomplete=discord.utils.basic_autocomplete(automod_settings.keys())),
+                          value: Option(str, "Value for the setting (off/low/medium/high or a number)")):
+        await ctx.defer()
+        if setting not in automod_settings:
+            await ctx.respond("Invalid automod setting. Please choose from the autocomplete list.")
+            return
+        
+        numeric_value = get_automod_value(value)
+        if numeric_value is None:
+            await ctx.respond("Invalid value. Please use 'off', 'low', 'medium', 'high', or a number.")
+            return
+        
+        execute_db_query("INSERT OR REPLACE INTO automod_settings VALUES (?, ?, ?)", (ctx.guild.id, setting, numeric_value))
+        embed = discord.Embed(title="Automod Setting Updated", description=f"'{automod_settings[setting]['name']}' has been set to {value}.", color=discord.Color.green())
+        await ctx.respond(embed=embed)
+
+    @automod.command(name="view", description="View current automod settings")
+    @commands.has_permissions(administrator=True)
+    async def view_automod(ctx):
+        await ctx.defer()
+        settings = execute_db_query("SELECT setting, value FROM automod_settings WHERE guild_id = ?", (ctx.guild.id,))
+        
+        embed = discord.Embed(title="Automod Settings", color=discord.Color.blue())
+        for setting, value in settings:
+            if setting in automod_settings:
+                embed.add_field(name=automod_settings[setting]['name'], value=f"{'On' if value > 0 else 'Off'} (Value: {value})", inline=False)
+        
+        if not settings:
+            embed.description = "No automod settings configured."
+        
+        await ctx.respond(embed=embed)
+
     @bot.event
     async def on_message(message):
         if message.author.bot:
             return
-    
+
         # Check for spam
         if message.guild.id not in message_counts_min:
             message_counts_min[message.guild.id] = {}
@@ -168,22 +234,80 @@ def setup_filter(bot):
                     await message.channel.send(f"{message.author.mention} said: {chunk}")
                 return
 
-    @bot.slash_command(name="view_filter", description="View the current filter list")
-    @commands.has_permissions(manage_messages=True)
-    async def view_filter(ctx):
-        await ctx.defer()
-        filtered_words = execute_db_query("SELECT word FROM filter WHERE guild_id = ?", (ctx.guild.id,))
-        filtered_words = [row[0] for row in filtered_words]
-        
-        if not filtered_words:
-            embed = discord.Embed(title="Filter List", description="The filter list is currently empty.", color=discord.Color.blue())
-        else:
-            embed = discord.Embed(title="Filter List", description=", ".join(filtered_words), color=discord.Color.blue())
-        
-        await ctx.respond(embed=embed)
-    
+        automod_settings = execute_db_query("SELECT setting, value FROM automod_settings WHERE guild_id = ?", (message.guild.id,))
+        automod_settings = dict(automod_settings)
+
+        violations = []
+
+        # Check caps percentage
+        if "caps_percent" in automod_settings and automod_settings["caps_percent"] > 0:
+            caps_count = sum(1 for c in message.content if c.isupper())
+            if len(message.content) > 0 and (caps_count / len(message.content)) * 100 > automod_settings["caps_percent"]:
+                violations.append("excessive caps")
+
+        # Check repeated characters
+        if "repeated_chars" in automod_settings and automod_settings["repeated_chars"] > 0:
+            if any(char * automod_settings["repeated_chars"] in message.content for char in set(message.content)):
+                violations.append("repeated characters")
+
+        # Check mention limit
+        if "mention_limit" in automod_settings and automod_settings["mention_limit"] > 0:
+            mention_count = len(message.mentions) + len(message.role_mentions)
+            if mention_count > automod_settings["mention_limit"]:
+                violations.append("excessive mentions")
+
+        # Check emoji limit
+        if "emoji_limit" in automod_settings and automod_settings["emoji_limit"] > 0:
+            emoji_count = len(re.findall(r'<:[a-zA-Z0-9_]+:\d+>', message.content))
+            if emoji_count > automod_settings["emoji_limit"]:
+                violations.append("excessive emojis")
+
+        # Check max lines
+        if "max_lines" in automod_settings and automod_settings["max_lines"] > 0:
+            if len(message.content.split('\n')) > automod_settings["max_lines"]:
+                violations.append("too many lines")
+
+        # Check max words
+        if "max_words" in automod_settings and automod_settings["max_words"] > 0:
+            if len(message.content.split()) > automod_settings["max_words"]:
+                violations.append("too many words")
+
+        # Check Zalgo text
+        if "zalgo_text" in automod_settings and automod_settings["zalgo_text"] > 0:
+            if re.search(r'[\u0300-\u036f\u0489]', message.content):
+                violations.append("Zalgo text")
+
+        # Take action if there are violations
+        if violations:
+            await message.delete()
+            violation_text = ", ".join(violations)
+            warn_embed = discord.Embed(title="Automod Warning", description=f"{message.author.mention}, your message was removed for the following reason(s): {violation_text}", color=discord.Color.orange())
+            await message.channel.send(embed=warn_embed)
+
+            # Timeout the user
+            try:
+                await message.author.timeout_for(duration=datetime.timedelta(minutes=5), reason=f"Automod violation: {violation_text}")
+                timeout_embed = discord.Embed(title="User Timed Out", description=f"{message.author.mention} has been timed out for 5 minutes due to automod violations.", color=discord.Color.red())
+                await message.channel.send(embed=timeout_embed)
+            except discord.errors.Forbidden:
+                print(f"Unable to timeout {message.author} (ID: {message.author.id}) due to lack of permissions.")
+
+            # Log the violation
+            log_channel_id = execute_db_query("SELECT channel_id FROM log_channels WHERE guild_id = ?", (message.guild.id,))
+            if log_channel_id:
+                log_channel = message.guild.get_channel(log_channel_id[0][0])
+                if log_channel:
+                    log_embed = discord.Embed(title="Automod Violation", color=discord.Color.orange())
+                    log_embed.add_field(name="User", value=f"{message.author.mention} ({message.author.id})", inline=False)
+                    log_embed.add_field(name="Channel", value=message.channel.mention, inline=False)
+                    log_embed.add_field(name="Violations", value=violation_text, inline=False)
+                    log_embed.add_field(name="Message Content", value=message.content[:1024], inline=False)
+                    await log_channel.send(embed=log_embed)
+
     @tasks.loop(minutes=1)
     async def reset_spam_tracker():
         message_counts_min.clear()
 
     reset_spam_tracker.start()
+
+    bot.add_application_command(automod)
