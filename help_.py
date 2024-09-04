@@ -19,6 +19,22 @@ def setup_help(bot):
             self.index += 1
             await self.update_message(interaction)
 
+        @discord.ui.select(
+            placeholder="Jump to section",
+            options=[
+                discord.SelectOption(label="Overview", value="0"),
+                discord.SelectOption(label="Moderation", value="1"),
+                discord.SelectOption(label="Filters", value="2"),
+                discord.SelectOption(label="Logs", value="3"),
+                discord.SelectOption(label="User Management", value="4"),
+                discord.SelectOption(label="Utilities", value="5"),
+                discord.SelectOption(label="Automod", value="6")
+            ]
+        )
+        async def select_section(self, select: discord.ui.Select, interaction: discord.Interaction):
+            self.index = int(select.values[0])
+            await self.update_message(interaction)
+
         async def update_message(self, interaction: discord.Interaction):
             embed = self.embeds[self.index]
             self.previous.disabled = (self.index == 0)
@@ -96,7 +112,7 @@ def setup_help(bot):
         return embeds
 
     @bot.slash_command(name="help", description="Get help with PeaceKeeper commands")
-    async def help_(ctx):
+    async def help(ctx):
         await ctx.defer()
         # Provide general help with pagination
         embeds = create_help_embeds()
