@@ -35,6 +35,7 @@ def setup_help(bot):
         embed.add_field(name="Logs", value="`/set_log_channel`, `/enable_log`, `/disable_log`, `/view_log_settings`", inline=False)
         embed.add_field(name="User Management", value="`/add_role`, `/remove_role`, `/temprole`, `/notes`", inline=False)
         embed.add_field(name="Utilities", value="`/server_info`, `/user_info`, `/role_info`, `/channel_info`", inline=False)
+        embed.add_field(name="Automod", value="`/automod set`, `/automod view`", inline=False)
         embeds.append(embed)
 
         # Moderation commands
@@ -84,6 +85,14 @@ def setup_help(bot):
         embed.add_field(name="/user_roles <user>", value="List all roles of a user", inline=False)
         embeds.append(embed)
 
+        # Automod commands
+        embed = discord.Embed(title="Automod Commands", color=discord.Color.orange())
+        embed.add_field(name="/automod set <setting> <value>", value="Configure an automod setting", inline=False)
+        embed.add_field(name="/automod view", value="View current automod settings", inline=False)
+        embed.add_field(name="Available Settings", value="caps_percent, repeated_chars, spam_messages, mention_limit, emoji_limit, max_lines, max_words, zalgo_text", inline=False)
+        embed.add_field(name="Setting Values", value="Use 'off', 'low', 'medium', 'high', or a specific number", inline=False)
+        embeds.append(embed)
+
         return embeds
 
     @bot.slash_command(name="help", description="Get help with PeaceKeeper commands")
@@ -103,7 +112,8 @@ def setup_help(bot):
         embed.add_field(name="Step 3: Set up filters", value="Use `/add_filter` to add words to the filter", inline=False)
         embed.add_field(name="Step 4: Configure auto-mod", value="Use `/block` to block specific types of content", inline=False)
         embed.add_field(name="Step 5: Set up roles", value="Use `/add_role` and `/remove_role` to manage roles", inline=False)
-        embed.add_field(name="Step 6: Familiarize with commands", value="Use `/help` to see all available commands", inline=False)
+        embed.add_field(name="Step 6: Configure automod", value="Use `/automod set` to configure automod settings", inline=False)
+        embed.add_field(name="Step 7: Familiarize with commands", value="Use `/help` to see all available commands", inline=False)
         embed.set_footer(text="For more detailed help, use /help <command> for specific commands.")
         await ctx.respond(embed=embed)
 
@@ -116,5 +126,6 @@ def setup_help(bot):
         embed.add_field(name="Useful Commands", value="You can use `/server_info` to get information about the server.", inline=False)
         embed.add_field(name="Roles", value="You can view your roles using `/user_roles`.", inline=False)
         embed.add_field(name="Be Respectful", value="Always be respectful to other members and follow moderator instructions.", inline=False)
+        embed.add_field(name="Automod", value="Be aware of automod settings to avoid accidental violations.", inline=False)
         embed.set_footer(text="If you have any questions, don't hesitate to ask a moderator!")
         await ctx.respond(embed=embed)
