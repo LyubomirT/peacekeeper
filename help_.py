@@ -96,7 +96,7 @@ def setup_help(bot):
         return embeds
 
     @bot.slash_command(name="help", description="Get help with PeaceKeeper commands")
-    async def help(ctx):
+    async def help_(ctx):
         await ctx.defer()
         # Provide general help with pagination
         embeds = create_help_embeds()
