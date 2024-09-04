@@ -130,7 +130,7 @@ def setup_help(bot):
         embed.add_field(name="Step 5: Set up roles", value="Use `/add_role` and `/remove_role` to manage roles", inline=False)
         embed.add_field(name="Step 6: Configure automod", value="Use `/automod set` to configure automod settings", inline=False)
         embed.add_field(name="Step 7: Familiarize with commands", value="Use `/help` to see all available commands", inline=False)
-        embed.set_footer(text="For more detailed help, use /help <command> for specific commands.")
+        embed.set_footer(text="For more detailed help, use /help <category>, there is a lot to explore!")
         await ctx.respond(embed=embed)
 
     @bot.slash_command(name="normal_user_guide", description="Get a guide for normal server members")
