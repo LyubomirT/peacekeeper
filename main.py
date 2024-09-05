@@ -11,6 +11,7 @@ from warnings_ import setup_warnings
 from utilities import setup_utilities
 from notes import setup_notes
 from help_ import setup_help
+from verification import setup_verification
 
 load_dotenv()
 
@@ -40,6 +41,7 @@ def setup(bot):
     setup_utilities(bot)
     setup_notes(bot)
     setup_help(bot)
+    setup_verification(bot)
 
 setup(bot)
 
