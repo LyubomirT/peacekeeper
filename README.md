@@ -1,3 +1,6 @@
+> [!WARN]
+> This bot has been deprecated and is no longer running on the PyDev server, and, to be fair, anywhere. I'm archiving it as it's no longer maintained; instead, I'm focusing my efforts on LTDS and a complete suite of interconnected bots for installation in any server, as a legacy of Orange bots of The Orange Squad and as my final act of respect for the community I grew, grew with, and later abandoned due to financial struggles.
+
 # PeaceKeeper 🕊️
 
 [![Discord](https://img.shields.io/discord/1079761115636043926?color=7289da&logo=discord&logoColor=white)](https://discord.gg/the-orange-squad)
